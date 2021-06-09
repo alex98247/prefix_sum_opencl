@@ -12,6 +12,41 @@ using std::chrono::steady_clock;
 
 #define BUFFER_SIZE (0x100000)
 
+int free_opencl(cl_kernel kernel, cl_kernel kernel1, cl_command_queue command_queue, cl_mem max_sum_mem_obj, cl_mem b_mem_obj, cl_mem a_mem_obj, cl_program program, cl_context context) {
+    if (kernel != NULL && clReleaseKernel(kernel) != CL_SUCCESS) {
+        std::cerr << "Can not release kernel" << std::endl;
+        return 1;
+    }
+    if (kernel1 != NULL && clReleaseKernel(kernel1) != CL_SUCCESS) {
+        std::cerr << "Can not release kernel" << std::endl;
+        return 1;
+    }
+    if (program != NULL && clReleaseProgram(program) != CL_SUCCESS) {
+        std::cerr << "Can not release program" << std::endl;
+        return 1;
+    }
+    if (a_mem_obj != NULL && clReleaseMemObject(a_mem_obj) != CL_SUCCESS) {
+        std::cerr << "Can not release mem object" << std::endl;
+        return 1;
+    }
+    if (b_mem_obj != NULL && clReleaseMemObject(b_mem_obj) != CL_SUCCESS) {
+        std::cerr << "Can not release mem object" << std::endl;
+        return 1;
+    }
+    if (max_sum_mem_obj != NULL && clReleaseMemObject(max_sum_mem_obj) != CL_SUCCESS) {
+        std::cerr << "Can not release mem object" << std::endl;
+        return 1;
+    }
+    if (command_queue != NULL && clReleaseCommandQueue(command_queue) != CL_SUCCESS) {
+        std::cerr << "Can not release command queue" << std::endl;
+        return 1;
+    }
+    if (context != NULL && clReleaseContext(context) != CL_SUCCESS) {
+        std::cerr << "Can not release context" << std::endl;
+        return 1;
+    }
+}
+
 int main(int argc, char* argv[]) {
 
     if (argc != 4) {
@@ -186,6 +221,26 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
+    char* name;
+    size_t nameSize;
+    if (clGetDeviceInfo(*device_id, CL_DEVICE_NAME, 0, NULL, &nameSize) != CL_SUCCESS) {
+        std::cerr << "Can not get device name size" << std::endl;
+        delete[] source_str;
+        delete[] A;
+        return 1;
+    }
+    name = new char[nameSize];
+    if(clGetDeviceInfo(*device_id, CL_DEVICE_NAME, nameSize, name, &nameSize) != CL_SUCCESS) {
+        std::cerr << "Can not get device name" << std::endl;
+        delete[] source_str;
+        delete[] A;
+        delete[] name;
+        return 1;
+    }
+
+    printf("\nDevice name: %s \n", name);
+    delete[] name;
+
     size_t global_item_size = n;
     size_t local_item_size = 64;
     if (global_item_size % local_item_size != 0) {
@@ -203,6 +258,7 @@ int main(int argc, char* argv[]) {
         std::cerr << "Can not create context" << std::endl;
         delete[] source_str;
         delete[] A;
+        free_opencl(NULL, NULL, NULL, NULL, NULL, NULL, NULL, context);
         return 1;
     }
 
@@ -211,6 +267,7 @@ int main(int argc, char* argv[]) {
         std::cerr << "Can not create command queue" << std::endl;
         delete[] source_str;
         delete[] A;
+        free_opencl(NULL, NULL, command_queue, NULL, NULL, NULL, NULL, context);
         return 1;
     }
 
@@ -219,6 +276,7 @@ int main(int argc, char* argv[]) {
         std::cerr << "Can not create buffer" << std::endl;
         delete[] source_str;
         delete[] A;
+        free_opencl(NULL, NULL, command_queue, NULL, NULL, a_mem_obj, NULL, context);
         return 1;
     }
     cl_mem b_mem_obj = clCreateBuffer(context, CL_MEM_READ_WRITE, n * sizeof(float), NULL, &err);
@@ -226,6 +284,7 @@ int main(int argc, char* argv[]) {
         std::cerr << "Can not create buffer" << std::endl;
         delete[] source_str;
         delete[] A;
+        free_opencl(NULL, NULL, command_queue, NULL, b_mem_obj, a_mem_obj, NULL, context);
         return 1;
     }
     cl_mem max_sum_mem_obj = clCreateBuffer(context, CL_MEM_READ_WRITE, global_groups_size * sizeof(float), NULL, &err);
@@ -233,6 +292,7 @@ int main(int argc, char* argv[]) {
         std::cerr << "Can not create buffer" << std::endl;
         delete[] source_str;
         delete[] A;
+        free_opencl(NULL, NULL, command_queue, max_sum_mem_obj, b_mem_obj, a_mem_obj, NULL, context);
         return 1;
     }
 
@@ -240,6 +300,7 @@ int main(int argc, char* argv[]) {
         std::cerr << "Can not write buffer" << std::endl;
         delete[] source_str;
         delete[] A;
+        free_opencl(NULL, NULL, command_queue, max_sum_mem_obj, b_mem_obj, a_mem_obj, NULL, context);
         return 1;
     }
 
@@ -248,6 +309,7 @@ int main(int argc, char* argv[]) {
         std::cerr << "Can not create program" << std::endl;
         delete[] source_str;
         delete[] A;
+        free_opencl(NULL, NULL, command_queue, max_sum_mem_obj, b_mem_obj, a_mem_obj, program, context);
         return 1;
     }
 
@@ -255,6 +317,7 @@ int main(int argc, char* argv[]) {
     if (clBuildProgram(program, 1, device_id, NULL, NULL, NULL) != CL_SUCCESS) {
         std::cerr << "Can not create buffer" << std::endl;
         delete[] A;
+        free_opencl(NULL, NULL, command_queue, max_sum_mem_obj, b_mem_obj, a_mem_obj, program, context);
         return 1;
     }
 
@@ -262,21 +325,25 @@ int main(int argc, char* argv[]) {
     if (err != CL_SUCCESS) {
         std::cerr << "Can not create kernel" << std::endl;
         delete[] A;
+        free_opencl(kernel, NULL, command_queue, max_sum_mem_obj, b_mem_obj, a_mem_obj, program, context);
         return 1;
     }
     if (clSetKernelArg(kernel, 0, sizeof(cl_mem), (void*)&a_mem_obj) != CL_SUCCESS) {
         std::cerr << "Can not set argument" << std::endl;
         delete[] A;
+        free_opencl(kernel, NULL, command_queue, max_sum_mem_obj, b_mem_obj, a_mem_obj, program, context);
         return 1;
     }
     if (clSetKernelArg(kernel, 1, sizeof(cl_mem), (void*)&b_mem_obj) != CL_SUCCESS) {
         std::cerr << "Can not set argument" << std::endl;
         delete[] A;
+        free_opencl(kernel, NULL, command_queue, max_sum_mem_obj, b_mem_obj, a_mem_obj, program, context);
         return 1;
     }
     if (clSetKernelArg(kernel, 2, sizeof(cl_mem), (void*)&max_sum_mem_obj) != CL_SUCCESS) {
         std::cerr << "Can not set argument" << std::endl;
         delete[] A;
+        free_opencl(kernel, NULL, command_queue, max_sum_mem_obj, b_mem_obj, a_mem_obj, program, context);
         return 1;
     }
 
@@ -284,16 +351,19 @@ int main(int argc, char* argv[]) {
     if (err != CL_SUCCESS) {
         std::cerr << "Can not create kernel" << std::endl;
         delete[] A;
+        free_opencl(kernel, kernel1, command_queue, max_sum_mem_obj, b_mem_obj, a_mem_obj, program, context);
         return 1;
     }
     if (clSetKernelArg(kernel1, 0, sizeof(cl_mem), (void*)&b_mem_obj) != CL_SUCCESS) {
         std::cerr << "Can not set argument" << std::endl;
         delete[] A;
+        free_opencl(kernel, kernel1, command_queue, max_sum_mem_obj, b_mem_obj, a_mem_obj, program, context);
         return 1;
     }
     if (clSetKernelArg(kernel1, 1, sizeof(cl_mem), (void*)&max_sum_mem_obj) != CL_SUCCESS) {
         std::cerr << "Can not set argument" << std::endl;
         delete[] A;
+        free_opencl(kernel, kernel1, command_queue, max_sum_mem_obj, b_mem_obj, a_mem_obj, program, context);
         return 1;
     }
    
@@ -301,11 +371,13 @@ int main(int argc, char* argv[]) {
     if (clEnqueueNDRangeKernel(command_queue, kernel, 1, NULL, &global_item_size, &local_item_size, 0, NULL, &kernel_event) != CL_SUCCESS) {
         std::cerr << "Can not start kernel" << std::endl;
         delete[] A;
+        free_opencl(kernel, kernel1, command_queue, max_sum_mem_obj, b_mem_obj, a_mem_obj, program, context);
         return 1;
     }
     if (clEnqueueNDRangeKernel(command_queue, kernel1, 1, NULL, &global_item_size, &local_item_size, 0, NULL, &kernel_event1) != CL_SUCCESS) {
         std::cerr << "Can not start kernel" << std::endl;
         delete[] A;
+        free_opencl(kernel, kernel1, command_queue, max_sum_mem_obj, b_mem_obj, a_mem_obj, program, context);
         return 1;
     }
 
@@ -317,9 +389,10 @@ int main(int argc, char* argv[]) {
         return 1;
     }
     if (clEnqueueReadBuffer(command_queue, b_mem_obj, CL_TRUE, 0, n * sizeof(float), B, 0, NULL, NULL) != CL_SUCCESS) {
-        std::cerr << "Can not read buffer " << err << std::endl;
+        std::cerr << "Can not read buffer" << std::endl;
         delete[] B;
         delete[] A;
+        free_opencl(kernel, kernel1, command_queue, max_sum_mem_obj, b_mem_obj, a_mem_obj, program, context);
         return 1;
     }
 
@@ -332,12 +405,14 @@ int main(int argc, char* argv[]) {
         std::cerr << "Can not get profiling info" << std::endl;
         delete[] B;
         delete[] A;
+        free_opencl(kernel, kernel1, command_queue, max_sum_mem_obj, b_mem_obj, a_mem_obj, program, context);
         return 1;
     }
     if (clGetEventProfilingInfo(kernel_event, CL_PROFILING_COMMAND_END, sizeof(cl_ulong), &end_k, NULL) != CL_SUCCESS) {
         std::cerr << "Can not get profiling info" << std::endl;
         delete[] B;
         delete[] A;
+        free_opencl(kernel, kernel1, command_queue, max_sum_mem_obj, b_mem_obj, a_mem_obj, program, context);
         return 1;
     }
     total_time += end_k - begin_k;
@@ -345,12 +420,14 @@ int main(int argc, char* argv[]) {
         std::cerr << "Can not get profiling info" << std::endl;
         delete[] B;
         delete[] A;
+        free_opencl(kernel, kernel1, command_queue, max_sum_mem_obj, b_mem_obj, a_mem_obj, program, context);
         return 1;
     }
     if (clGetEventProfilingInfo(kernel_event1, CL_PROFILING_COMMAND_END, sizeof(cl_ulong), &end_k, NULL) != CL_SUCCESS) {
         std::cerr << "Can not get profiling info" << std::endl;
         delete[] B;
         delete[] A;
+        free_opencl(kernel, kernel1, command_queue, max_sum_mem_obj, b_mem_obj, a_mem_obj, program, context);
         return 1;
     }
     total_time += end_k - begin_k;
@@ -373,37 +450,6 @@ int main(int argc, char* argv[]) {
 
     delete[] A;
     delete[] B;
-    if(clReleaseKernel(kernel) != CL_SUCCESS) {
-        std::cerr << "Can not release kernel" << std::endl;
-        return 1;
-    }
-    if (clReleaseKernel(kernel1) != CL_SUCCESS) {
-        std::cerr << "Can not release kernel" << std::endl;
-        return 1;
-    }
-    if (clReleaseProgram(program) != CL_SUCCESS) {
-        std::cerr << "Can not release program" << std::endl;
-        return 1;
-    }
-    if(clReleaseMemObject(a_mem_obj) != CL_SUCCESS) {
-        std::cerr << "Can not release mem object" << std::endl;
-        return 1;
-    }
-    if(clReleaseMemObject(b_mem_obj) != CL_SUCCESS) {
-        std::cerr << "Can not release mem object" << std::endl;
-        return 1;
-    }
-    if(clReleaseMemObject(max_sum_mem_obj) != CL_SUCCESS) {
-        std::cerr << "Can not release mem object" << std::endl;
-        return 1;
-    }
-    if(clReleaseCommandQueue(command_queue) != CL_SUCCESS) {
-        std::cerr << "Can not release command queue" << std::endl;
-        return 1;
-    }
-    if(clReleaseContext(context) != CL_SUCCESS) {
-        std::cerr << "Can not release context" << std::endl;
-        return 1;
-    }
+    
     return 0;
 }

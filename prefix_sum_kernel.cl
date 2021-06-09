@@ -6,8 +6,12 @@ __kernel void prefix_sum(__global float* A, __global float* B, __global float* m
     cache[local_id] = A[global_id];
 
     for (int i = 1; i < 64; i <<= 1) {
-        barrier(CLK_LOCAL_MEM_FENCE);
-        cache[local_id] += cache[local_id - i];
+        float sync = 0;
+		if(i <= local_id){
+			sync = cache[local_id - i];
+		}
+		barrier(CLK_LOCAL_MEM_FENCE);
+		cache[local_id] += sync;
     }
 	
 	barrier(CLK_LOCAL_MEM_FENCE);
